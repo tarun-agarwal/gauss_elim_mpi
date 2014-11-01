@@ -4,28 +4,25 @@
  * Serial implementation of Gaussian Elimination
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+double** gauss_elim_serial(double** A, int n) {
+    // convert input matrix A to upper triangular
+    // assumes A is square
 
-#include "tools.h"
-
-double** gauss_elim_serial(double** input, int n, bool make_copy) {
     int k, i, j;
-    double factor;
-    double** A;
+    double factor, denominator;
 
-    if (make_copy){
-        A = deepcopy_matrix(input);
-    } else {
-        A = input;
-    }
+    for (k = 0; k < n; k++) {
+        for (i = k+1; i < n; i++) {
+            denominator = A[k][k];
 
+            if (denominator) {
+                factor = A[i][k] / denominator;
+            } else {
+                // preventing divide-by-zero problems
+                factor = 0.0;
+            }
 
-    for (k = 0; k < n -1; k++) {
-        for (i = k + 1; i < n; i++) {
-            factor = A[i][k] / A[k][k];
-
-            for (j = k + 1; j < n; j++) {
+            for (j = k; j < n; j++) {
                 A[i][j] = A[i][j] - factor * A[k][j];
             }
         }
