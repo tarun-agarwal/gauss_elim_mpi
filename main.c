@@ -8,16 +8,8 @@
 
 int main() {
 
-    int matrix_size =8;
-
-    double** A = make_matrix(matrix_size);
-
-    print_matrix(A, matrix_size);
-    A = gauss_elim_serial(A, matrix_size);
-
-    printf("\n");
-
-    print_matrix(A, matrix_size);
+    // test_serial();
+    time_serial_all();
 
     return 0;
 }

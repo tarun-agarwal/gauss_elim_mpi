@@ -11,11 +11,12 @@
 #include "tools.h"
 
 double** make_matrix(int n){
+  // allocate and fill nxn matrix with random numbers
   int i, j;
 
   double** matrix;
 
-  srand(time(NULL));
+  srand(time(NULL)); // set random seed
 
   matrix = (double**) malloc(n * sizeof(double*));
 
@@ -23,7 +24,8 @@ double** make_matrix(int n){
     matrix[i] = (double*) malloc(n * sizeof(double*));
 
     for (j = 0; j < n; j++){
-      matrix[i][j] = rand() % 10;
+      // generate random double
+      matrix[i][j] = ((double) rand()) * ((double) rand()) / ((double) rand());
     }
   }
   return matrix;
@@ -61,7 +63,7 @@ void print_submatrix(double** matrix, int row_start, int row_end, int col_start,
       else
         printf("%+e ", to_print);
     }
-    printf(" |\n");
+    printf("|\n");
   }
 }
 
@@ -101,4 +103,3 @@ double** deepcopy_matrix(double** A, int n) {
 
   return B;
 }
-
