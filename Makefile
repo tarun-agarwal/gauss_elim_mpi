@@ -1,5 +1,5 @@
 program.out: main.o tools.o GEserial.o GEmpi.o
-	gcc -O0 -o program.out main.o tools.o GEserial.o GEmpi.o
+	mpicc -O0 -o program.out main.o tools.o GEserial.o GEmpi.o
 
 main.o: main.c
 	gcc -O0 -c main.c

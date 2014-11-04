@@ -103,3 +103,11 @@ double** deepcopy_matrix(double** A, int n) {
 
   return B;
 }
+
+void free_matrix(double** A, int n) {
+  int i;
+  for (i = 0; i < n; i++) {
+    free(A[i]);
+  }
+  free(A);
+}

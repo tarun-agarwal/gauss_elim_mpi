@@ -24,7 +24,7 @@ Using `open-mpi-1.8.3`
 
 ## 1.2 Serial Implementation
 
-### Algorithm
+See `GESerial.c`.
 
 ### Results
 

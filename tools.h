@@ -20,5 +20,7 @@ void print_submatrix(double **matrix, int row_start, int row_end, int col_start,
 
 double timer();
 
+// possibly not used:
 int compare_matrix(double** A, double** B, int n);
 double** deepcopy_matrix(double** A, int n);
+void free_matrix(double** A, int n);
