@@ -7,17 +7,17 @@
 
 #define TAG 0
 
-double** gauss_elim_parallel_p2p_continuous(double** A, int n, int argc, char** argv){
+double** gauss_elim_parallel_p2p_continuous(double** A, int n){
     int num_processes, rank;
 
-    MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
 
 
     int blocking = n / num_processes; // blocking factor
 
-    int pivot, row, col;
-    int i;
+    int pivot, row, col, i, owner;
+    int ok_send[1];
+    int ok_recv[1];
     double factor, denominator;
     MPI_Status status;
 
@@ -55,23 +55,24 @@ double** gauss_elim_parallel_p2p_continuous(double** A, int n, int argc, char** 
         // now do elimination
 
         for (row = pivot+1; row < n; row++) {
-        //     if (denominator) {
-        //         factor = A[row][pivot] / denominator;
-        //     } else {
-        //         // preventing divide-by-zero problems
-        //         factor = 0.0;
-        //     }
+            //while ((rank >= row / blocking) && (rank < (row + blocking) / blocking))
+                factor = A[row][pivot] / denominator;
 
-        //     for (col = pivot; col < n; col++) {
-        //         A[row][col] -= factor * A[pivot][col];
-        //     }
+                for (col = pivot; col < n; col++) {
+                    A[row][col] -= factor * A[pivot][col];
+                }
+
+                MPI_Send(ok_send, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD);
         }
 
+        if (rank == 0) {
+            for (i = 0; i < num_processes; i++) {
+                MPI_Recv(ok_recv, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &status);
+            }
+        }
     }
 
     free(buffer);
-
-    MPI_Finalize();
 
     return A;
 }
@@ -90,15 +91,25 @@ double** gauss_elim_parallel_broadcast_circular(double** A, int n){
 
 void test_parallel(int argc, char** argv) {
     int n = 4;
+    int rank;
 
     double** A = make_matrix(n);
 
-    // print_matrix(A, n);
-    // printf("\n");
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    A = gauss_elim_parallel_p2p_continuous(A, n, argc, argv);
+    if (rank == 0){
+        print_matrix(A, n);
+        printf("\n\n");
+        A = gauss_elim_parallel_p2p_continuous(A, n);
 
-    // print_matrix(A, n);
+        print_matrix(A, n);
+        printf("\n");
+    }
+
+    MPI_Finalize();
+
+
 }
 
 void time_parallel_all() {
