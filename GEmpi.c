@@ -5,87 +5,104 @@
 #include <stdio.h> // for printf
 #include <stdlib.h> // for malloc/free
 
-#define TAG 0
+#define BUFFER_TAG 0
+#define SUBMATRIX_INIT_TAG 1
+#define SUBMATRIX_DONE_TAG 2
+
+#define ROOT_RANK 0
 
 #define CONTINUOUS 0
 #define CICRULAR 1
 
-double** gauss_elim_parallel_p2p(double** A, int n, int mode){
+double** gauss_elim_parallel_p2p_continuous(double** A, int n){
     int num_processes, rank;
 
     MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
-
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); // assign this process's rank
+    MPI_Status status; // for MPI_Recv() calls
 
     int blocking = n / num_processes; // blocking factor
 
-    int pivot, row, col, i, j, owner, start_row;
-    int ok_send[1];
-    int ok_recv[1];
-    double factor, denominator;
-    MPI_Status status;
+    int process; // loop iterator for sending stuff to processes
+    int pivot, row, column, denominator, factor; // for gauss elim
+    int i; // generic loop iterator
 
-    int decomposition;
+    int submatrix_size = n * (blocking) * sizeof(double); // for submatrix decomp
+    int y_start, y_end; // for submatrix decomposition
 
-    double *buffer = malloc(n * sizeof(double));
+    double* buffer = malloc(n * sizeof(double));
+    double** submatrix;
 
     for (pivot = 0; pivot < n; pivot++) {
         denominator = A[pivot][pivot];
 
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank); // get rank
-
-        if (rank == 0) {
+        if (rank == ROOT_RANK) {
             // parent, make buffer
-            for (i = 0; i < n; i++) {
-                buffer[i] = A[pivot][i];
+            for (column = 0; column < n; i++) {
+                buffer[column] = A[pivot][column];
             }
 
             // now send buffer to every other process
-            for (i = 1; i < num_processes; i++) {
-                MPI_Send(buffer, n, MPI_DOUBLE, i, TAG, MPI_COMM_WORLD);
+            for (process = ROOT_RANK; process < num_processes; process++) {
+                MPI_Send(buffer, n, MPI_DOUBLE, process, BUFFER_TAG, MPI_COMM_WORLD);
             }
 
-        } else {
-            // get buffer
-            MPI_Recv(buffer, n, MPI_DOUBLE, 0, TAG, MPI_COMM_WORLD, &status);
+            // split matrix into local matrices using continuous decomp
+            for (process = ROOT_RANK; process < num_processes; process++) {
+                // make local copy of submatrix
+                y_start = process * blocking;
+                y_end = (process * blocking) + blocking;
+                submatrix = copy_submatrix(A, n, y_start, y_end);
+
+                // send copy to mapped process
+                MPI_Send(submatrix, submatrix_size, MPI_DOUBLE, process, SUBMATRIX_INIT_TAG, MPI_COMM_WORLD);
+            }
+
         }
 
-        if (buffer[pivot])
-            denominator = buffer[pivot];
-        else
-            denominator = 1.0;
+        // now do elimination for each processor
+        for (i = ROOT_RANK; i < num_processes; i++) {
+            if (rank == i) {
+                // get buffer
+                MPI_Recv(buffer, n, MPI_DOUBLE, ROOT_RANK, BUFFER_TAG, MPI_COMM_WORLD, &status);
+                // get submatrix
+                MPI_Recv(submatrix, submatrix_size, MPI_DOUBLE, ROOT_RANK, BUFFER_TAG, MPI_COMM_WORLD, &status);
 
-        if ((rank == 0) && (n == num_processes))
-            // in the case where n == np, process 0 does nothing
-            // so send an OK anyway
-            MPI_Send(ok_send, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD);
-
-        // split matrix into local matrices
-
-        // now do elimination
-        for (start_row = pivot+1; start_row < n; start_row += blocking) {
-            if (rank == (start_row / blocking)) {
-                for (row = start_row; row < (start_row + blocking); row++) {
-                    factor = A[row][pivot] / denominator;
-
-                    for (col = pivot; col < n; col++) {
-                        A[row][col] -= factor * A[pivot][col];
+                // do elimination for process i
+                for (row = 0; row < blocking; row++) {
+                    if (denominator) {
+                        factor = buffer[pivot] / denominator;
+                    } else {
+                        // prevent div by zero problems
+                        factor = 0.0;
                     }
 
-                    printf("Process %d operated on row %d\n", rank, row);
-
-                    MPI_Send(ok_send, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD);
+                    for (column = pivot; column < n; column++) {
+                        submatrix[row][column] -= factor * buffer[column];
+                    }
                 }
+
+                // return eliminated submatrix to root
+                MPI_Send(submatrix, submatrix_size, MPI_DOUBLE, ROOT_RANK, SUBMATRIX_DONE_TAG, MPI_COMM_WORLD);
             }
         }
+
+        if (rank == 0) {
+            // combine all results
+            for (process = ROOT_RANK; i < num_processes; i++) {
+                MPI_Recv(submatrix, submatrix_size, MPI_DOUBLE, i, SUBMATRIX_DONE_TAG, MPI_COMM_WORLD, &status);
+
+                // replace the relevant lines of A with this submatrix
+                y_start = process*(n / blocking);
+                y_end = (process + 1)*(n / blocking);
+                replace_submatrix(A, submatrix, n, y_start, y_end);
+            }
+        }
+
     }
 
-    if (rank == 0) {
-        for (i = 0; i < num_processes; i++) {
-            MPI_Recv(ok_recv, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &status);
-            printf("Parent received OK from %d\n", i);
-        }
-    }
     free(buffer);
+    free_matrix(submatrix, n);
     return A;
 }
 
@@ -107,7 +124,7 @@ void test_parallel(int argc, char** argv) {
         printf("\n\n");
     }
 
-    A = gauss_elim_parallel_p2p(A, n, CONTINUOUS);
+    A = gauss_elim_parallel_p2p_continuous(A, n);
 
     if (rank == 0){
         print_matrix(A, n);
@@ -115,8 +132,6 @@ void test_parallel(int argc, char** argv) {
     }
 
     MPI_Finalize();
-
-
 }
 
 void time_parallel_all() {

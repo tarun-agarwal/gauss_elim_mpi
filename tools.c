@@ -32,16 +32,37 @@ double** make_matrix(int n){
 }
 
 double** allocate_matrix(int n) {
+  return allocate_submatrix(n, 0, n);
+}
+
+double** allocate_submatrix(int width, int y_start, int y_end) {
   int i;
 
-  double** matrix;
+  double** submatrix;
 
-  matrix = (double**) malloc(n * sizeof(double));
+  int height = y_end - y_start;
 
-  for (i = 0; i < n; i++){
-    matrix[i] = (double*) malloc(n * sizeof(double));
+  submatrix = (double**) malloc(height * sizeof(double));
+
+  for (i = 0; i < height; i++) {
+    submatrix[i] = (double*) malloc(width * sizeof(double));
   }
-  return matrix;
+
+  return submatrix;
+}
+
+double** copy_submatrix(double** input, int width, int y_start, int y_end) {
+  int i, j;
+
+  double** submatrix = allocate_submatrix(width, y_start, y_end);
+
+  for (i = 0; i < (y_end - y_start); i++) {
+    for (j = 0; j < width; j++) {
+      submatrix[i][j] = input[y_start + i][j];
+    }
+  }
+
+  return submatrix;
 }
 
 void print_matrix(double** matrix, int n){
@@ -89,19 +110,8 @@ int compare_matrix(double** A, double** B, int n) {
   return result;
 }
 
-double** deepcopy_matrix(double** A, int n) {
-  int i, j;
-  double** B;
-
-  B = allocate_matrix(n);
-
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < n; j++) {
-      B[i][j] = A[i][j];
-    }
-  }
-
-  return B;
+double** copy_matrix(double** A, int n) {
+  return copy_submatrix(A, n, 0, n);
 }
 
 void free_matrix(double** A, int n) {
@@ -110,4 +120,14 @@ void free_matrix(double** A, int n) {
     free(A[i]);
   }
   free(A);
+}
+
+double** replace_submatrix(double** big_matrix, double** submatrix, int n, int y_start, int y_end){
+  int i, j;
+  for (i = y_start; i < y_end; i++) {
+    for (j = 0; j < n; j++) {
+      big_matrix[i][j] = submatrix[i - y_start][j];
+    }
+  }
+  return big_matrix;
 }
