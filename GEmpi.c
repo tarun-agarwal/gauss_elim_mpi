@@ -7,7 +7,10 @@
 
 #define TAG 0
 
-double** gauss_elim_parallel_p2p_continuous(double** A, int n){
+#define CONTINUOUS 0
+#define CICRULAR 1
+
+double** gauss_elim_parallel_p2p(double** A, int n, int mode){
     int num_processes, rank;
 
     MPI_Comm_size(MPI_COMM_WORLD, &num_processes);
@@ -15,11 +18,13 @@ double** gauss_elim_parallel_p2p_continuous(double** A, int n){
 
     int blocking = n / num_processes; // blocking factor
 
-    int pivot, row, col, i, owner;
+    int pivot, row, col, i, j, owner, start_row;
     int ok_send[1];
     int ok_recv[1];
     double factor, denominator;
     MPI_Status status;
+
+    int decomposition;
 
     double *buffer = malloc(n * sizeof(double));
 
@@ -30,13 +35,7 @@ double** gauss_elim_parallel_p2p_continuous(double** A, int n){
 
         if (rank == 0) {
             // parent, make buffer
-
-            // pad with zeros
-            for (i = 0; i < pivot; i++) {
-                buffer[i] = 0.0;
-            }
-
-            for (i = pivot; i < n; i++) {
+            for (i = 0; i < n; i++) {
                 buffer[i] = A[pivot][i];
             }
 
@@ -50,42 +49,47 @@ double** gauss_elim_parallel_p2p_continuous(double** A, int n){
             MPI_Recv(buffer, n, MPI_DOUBLE, 0, TAG, MPI_COMM_WORLD, &status);
         }
 
-        denominator = buffer[pivot];
+        if (buffer[pivot])
+            denominator = buffer[pivot];
+        else
+            denominator = 1.0;
+
+        if ((rank == 0) && (n == num_processes))
+            // in the case where n == np, process 0 does nothing
+            // so send an OK anyway
+            MPI_Send(ok_send, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD);
+
+        // split matrix into local matrices
 
         // now do elimination
+        for (start_row = pivot+1; start_row < n; start_row += blocking) {
+            if (rank == (start_row / blocking)) {
+                for (row = start_row; row < (start_row + blocking); row++) {
+                    factor = A[row][pivot] / denominator;
 
-        for (row = pivot+1; row < n; row++) {
-            //while ((rank >= row / blocking) && (rank < (row + blocking) / blocking))
-                factor = A[row][pivot] / denominator;
+                    for (col = pivot; col < n; col++) {
+                        A[row][col] -= factor * A[pivot][col];
+                    }
 
-                for (col = pivot; col < n; col++) {
-                    A[row][col] -= factor * A[pivot][col];
+                    printf("Process %d operated on row %d\n", rank, row);
+
+                    MPI_Send(ok_send, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD);
                 }
-
-                MPI_Send(ok_send, 1, MPI_INT, 0, TAG, MPI_COMM_WORLD);
-        }
-
-        if (rank == 0) {
-            for (i = 0; i < num_processes; i++) {
-                MPI_Recv(ok_recv, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &status);
             }
         }
     }
 
+    if (rank == 0) {
+        for (i = 0; i < num_processes; i++) {
+            MPI_Recv(ok_recv, 1, MPI_INT, i, TAG, MPI_COMM_WORLD, &status);
+            printf("Parent received OK from %d\n", i);
+        }
+    }
     free(buffer);
-
     return A;
 }
 
-double** gauss_elim_parallel_p2p_circular(double** A, int n){
-    return A;
-}
-
-double** gauss_elim_parallel_broadcast_continuous(double** A, int n){
-    return A;
-}
-
-double** gauss_elim_parallel_broadcast_circular(double** A, int n){
+double** gauss_elim_parallel_broadcast(double** A, int n, int mode){
     return A;
 }
 
@@ -101,8 +105,11 @@ void test_parallel(int argc, char** argv) {
     if (rank == 0){
         print_matrix(A, n);
         printf("\n\n");
-        A = gauss_elim_parallel_p2p_continuous(A, n);
+    }
 
+    A = gauss_elim_parallel_p2p(A, n, CONTINUOUS);
+
+    if (rank == 0){
         print_matrix(A, n);
         printf("\n");
     }

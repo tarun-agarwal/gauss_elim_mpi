@@ -25,7 +25,7 @@ double** make_matrix(int n){
 
     for (j = 0; j < n; j++){
       // generate random double
-      matrix[i][j] = ((double) rand()) * ((double) rand()) / ((double) rand());
+      matrix[i][j] = (double) (rand() % 10);
     }
   }
   return matrix;
