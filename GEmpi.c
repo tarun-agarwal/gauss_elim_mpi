@@ -54,7 +54,9 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
     for (process = 0; process < np; process++) {
         if (rank == process) {
             // local submatrix should be of size n*bf*(8 bytes)
+            // printf("Allocating submatrix %d of size (bf=%d, n=%d)", process, bf, n);
             local = allocate_submatrix(n, bf);
+            // printf(".\n");
         }
     }
 
@@ -66,12 +68,14 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
                 // send to applicable process
                 receiver = row / bf;
                 MPI_Send(matrix[row], n, MPI_DOUBLE, receiver, SUBMATRIX_INIT_TAG, MPI_COMM_WORLD);
+                // printf("Root sent matrix[%d] to process %d.\n", row, receiver);
             } else {
                 // recv submatrix from root
                 target_row = row % bf;
 
                 comm_start = timer();
                 MPI_Recv(local[target_row], n, MPI_DOUBLE, ROOT_RANK, SUBMATRIX_INIT_TAG, MPI_COMM_WORLD, &status);
+                // printf("Process %d received its local[%d].\n", process, target_row);
                 comm_end = timer();
                 total_comm += comm_end - comm_start;
             }
@@ -82,10 +86,14 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
                 for (column = 0; column < n; column++) {
                     local[target_row][column] = matrix[row][column];
                 }
+                // printf("Root made its local[%d].\n", target_row);
             }
             // else break?
         }
     }
+
+    if (rank == ROOT_RANK)
+        printf("\nGAUSS ELIM\n\n");
 
     // PERFORM GAUSS ELIMINATION
     for (pivot = 0; pivot < n; pivot++) {
@@ -93,22 +101,27 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
         buffer_size = n - pivot;
         buffer = malloc(buffer_size * sizeof(double));
 
-        // figure out who owns this pivot row
-        row_owner = row / bf; // TODO
+        row_owner = pivot / bf;
 
         // owner sends pivot row to everyone via buffer
         if (rank == row_owner) {
+            // printf("Pivot %d, allocated buffer of size %d, owner %d.\n", pivot, buffer_size, row_owner);
+
             // need to send this row to all other processes
             for (column = pivot; column < n; column++) {
                 buffer[column - pivot] = local[pivot % bf][column];
             }
 
+            // printf("%d: Process %d sending buffer to processes: ", pivot, rank);
+
             for (process = 0; process < np; process++) {
                 if (process != rank) {
                     // don't send to self but to everyone else
                     MPI_Send(buffer, buffer_size, MPI_DOUBLE, process, BUFFER_TAG, MPI_COMM_WORLD);
+                    // printf("%d, ", process);
                 }
             }
+            // printf("\n");
         } else {
             // get buffer from owner row
             comm_start = timer();
@@ -117,6 +130,21 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
 
             comm_end = timer();
             total_comm += comm_end - comm_start;
+
+            // printf("%d: Process %d recieved buffer (size=%d) from %d\n", pivot, rank, buffer_size, row_owner);
+        }
+
+        printf(ANSI_COLOR_BLUE "pivot=%d,rank=%d,buffer_size=%d,buffer: " ANSI_COLOR_RESET, pivot, rank, buffer_size);
+        for (column = 0; column < buffer_size; column++)
+            printf(ANSI_COLOR_BLUE "%+e " ANSI_COLOR_RESET, buffer[column]);
+        printf("\n");
+
+        for (row = 0; row < bf; row++) {
+            printf(ANSI_COLOR_GREEN "\tBEFORE:pivot=%d,proc=%d,row=%d: " ANSI_COLOR_RESET, pivot, rank, row);
+            for (column = 0; column < n; column++) {
+                printf(ANSI_COLOR_GREEN "%+e " ANSI_COLOR_RESET, local[row][column]);
+            }
+            printf("\n");
         }
 
         // now do elimination on the rows below only using the relevant processes
@@ -127,20 +155,32 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
 
                 target_row = row % bf;
 
-                if (denominator) {
-                    factor = local[target_row][pivot] / denominator;
-                } else {
-                    factor = 0.0; // prevent div by zero problems
-                }
+                // printf("pivot=%d,row=%d,owner=%d,target=%d\n", pivot, row, row_owner, target_row);
+
+
+                factor = local[target_row][pivot] / denominator;
+                printf("pivot=%d,rank=%d,row=%d,target_row=%d: denominator=%+e, factor=%+e, local[%d][%d]=%+e.\n", pivot, rank, row, target_row, denominator, factor, target_row, pivot, local[target_row][pivot]);
 
                 for (column = pivot; column < n; column++) {
                     // pivot or pivot+1?
-                    local[target_row][column] -= factor*buffer[column];
+                    local[target_row][column] -= factor*buffer[column - pivot];
                 }
             }
         }
+
+        for (row = 0; row < bf; row++) {
+            printf(ANSI_COLOR_CYAN "\tAFTER :pivot=%d,proc=%d,row=%d: " ANSI_COLOR_RESET, pivot, rank, row);
+            for (column = 0; column < n; column++) {
+                printf(ANSI_COLOR_CYAN "%+e " ANSI_COLOR_RESET, local[row][column]);
+            }
+            printf("\n");
+        }
+
+        free(buffer);
     }
 
+    if (rank == ROOT_RANK)
+        printf("\nCOMBINING RESULTS:\n\n");
     // COMBINE RESULTS
     for (row = 0; row < n; row++) {
         if (row >= bf) {
@@ -155,10 +195,14 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
 
                 comm_end = timer();
                 total_comm += comm_end;
+
+                printf("Root recieves row %d from process %d.\n", row, row_owner);
             } else if (rank == row_owner) {
                 // send results to root
                 target_row = row % bf;
                 MPI_Send(local[target_row], n, MPI_DOUBLE, ROOT_RANK, SUBMATRIX_DONE_TAG, MPI_COMM_WORLD);
+
+                printf("Process %d sends its local[%d] to root to be put into matrix[%d].\n", row_owner, target_row, row);
             }
         } else {
             if (rank == ROOT_RANK) {
@@ -167,17 +211,21 @@ double** gauss_elim_parallel_p2p_continuous(double** matrix, int n) {
                 for (column = 0; column < n; column++) {
                     matrix[row][column] = local[target_row][column];
                 }
+
+                printf("Root puts its local[%d] into matrix[%d].\n", target_row, row);
             }
         }
     }
+
+    printf("DONE process %d.\n", rank);
 
 
     // REPORT RESULTS
     comp_end = timer();
     total_comp = comp_end - comp_start;
 
-    free(buffer);
-    free_matrix(local, n);
+    //free(buffer);
+    free(local);
 
     return matrix;
 }
