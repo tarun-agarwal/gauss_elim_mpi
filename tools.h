@@ -14,7 +14,7 @@
 
 double** make_matrix(int n);
 double** allocate_matrix(int n);
-double** allocate_submatrix(int, int, int);
+double** allocate_submatrix(int, int);
 double** copy_submatrix(double** input, int width, int y_start, int y_end);
 double** replace_submatrix(double** big_matrix, double** submatrix, int n, int y_start, int y_end);
 

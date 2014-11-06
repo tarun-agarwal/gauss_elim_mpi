@@ -24,23 +24,21 @@ double** make_matrix(int n){
     matrix[i] = (double*) malloc(n * sizeof(double*));
 
     for (j = 0; j < n; j++){
-      // generate random double
-      matrix[i][j] = (double) (rand() % 10);
+      // generate random non-zero double
+      matrix[i][j] = (double) (rand() % 100) + 1;
     }
   }
   return matrix;
 }
 
 double** allocate_matrix(int n) {
-  return allocate_submatrix(n, 0, n);
+  return allocate_submatrix(n, n);
 }
 
-double** allocate_submatrix(int width, int y_start, int y_end) {
+double** allocate_submatrix(int width, int height) {
   int i;
 
   double** submatrix;
-
-  int height = y_end - y_start;
 
   submatrix = (double**) malloc(height * sizeof(double));
 
@@ -54,7 +52,7 @@ double** allocate_submatrix(int width, int y_start, int y_end) {
 double** copy_submatrix(double** input, int width, int y_start, int y_end) {
   int i, j;
 
-  double** submatrix = allocate_submatrix(width, y_start, y_end);
+  double** submatrix = allocate_submatrix(width, y_end - y_start);
 
   for (i = 0; i < (y_end - y_start); i++) {
     for (j = 0; j < width; j++) {
