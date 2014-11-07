@@ -14,7 +14,14 @@ int main(int argc, char** argv) {
 
     int n = 1024;
 
-    test_parallel(n, P2P, CONTINUOUS, argc, argv);
+    MPI_Init(&argc, &argv);
+
+    test_parallel(n, P2P, CONTINUOUS);
+    test_parallel(n, P2P, CIRCULAR);
+    test_parallel(n, BCAST, CONTINUOUS);
+    test_parallel(n, BCAST, CIRCULAR);
+
+    MPI_Finalize();
 
     return 0;
 }

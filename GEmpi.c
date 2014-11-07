@@ -14,8 +14,6 @@
 
 #define ROOT_RANK 0
 
-
-
 double** gauss_elim_parallel_p2p(double** matrix, int n, int mode) {
     // DECLARATIONS & INITALIZATIONS
 
@@ -39,9 +37,11 @@ double** gauss_elim_parallel_p2p(double** matrix, int n, int mode) {
 
     // for timer:
     double comm_start, comm_end;
+    double comp_start, comp_end;
     double total_comm = 0.0;
     double total_comm_all = 0.0; // for all processes
-    double total_temp;
+    double total_comp = 0.0;
+    double total_comp_all = 0.0;
 
     // loop iterators:
     int process; // looping over processes
@@ -50,6 +50,7 @@ double** gauss_elim_parallel_p2p(double** matrix, int n, int mode) {
     // for gauss elimination:
     double denominator, factor;
 
+    comp_start = timer();
 
     // ALLOCATE LOCAL SUBMATRICES
     for (process = 0; process < np; process++)
@@ -189,29 +190,25 @@ double** gauss_elim_parallel_p2p(double** matrix, int n, int mode) {
         }
     }
 
+    comp_end = timer();
+    total_comp = comp_end - comp_start;
+
     // REPORT RESULTS
     // send comp results to the root
-    if (rank == ROOT_RANK) {
-        total_comm_all += total_comm;
-    }
-
-    for (process = 1; process < np; process++) {
-        if (rank == process) {
-            MPI_Send(&total_comm, 1, MPI_DOUBLE, ROOT_RANK, COMM_TAG, MPI_COMM_WORLD);
-        } else if (rank == ROOT_RANK) {
-            MPI_Recv(&total_temp, 1, MPI_DOUBLE, process, COMM_TAG, MPI_COMM_WORLD, &status);
-            total_comm_all += total_temp; // get communication time first
-        }
-    }
+    MPI_Reduce(&total_comm, &total_comm_all, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
+    MPI_Reduce(&total_comp, &total_comp_all, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
 
     if (rank == ROOT_RANK) {
-        printf("Point-to-point, ");
+        printf(ANSI_COLOR_RED "Point-to-Point, ");
         if (mode == CONTINUOUS)
-            printf("continuous decomposition.\n");
+            printf("continuous decomposition.");
         else
-            printf("circular decomposition.\n\n");
-        printf("Matrix size (%d,%d), %d processes, blocking factor = %d\n\n", n, n, np, bf);
+            printf("circular decomposition.");
+        printf("\n" ANSI_COLOR_RESET);
+        printf(ANSI_COLOR_BLUE "Matrix size (%d,%d), %d processes, blocking factor = %d\n" ANSI_COLOR_RESET, n, n, np, bf);
         printf("Communication time: %+e s\n", total_comm_all);
+        printf("Computation time: %+e s\n", total_comp_all - total_comm_all);
+        printf("Total computation + communication time: %+e s\n\n", total_comp_all);
     }
 
     free(local);
@@ -242,8 +239,11 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
 
     // for timer:
     double comm_start, comm_end;
+    double comp_start, comp_end;
     double total_comm = 0.0;
     double total_comm_all = 0.0; // for all processes
+    double total_comp = 0.0;
+    double total_comp_all = 0.0;
 
     // loop iterators:
     int process; // looping over processes
@@ -251,6 +251,8 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
 
     // for gauss elimination:
     double denominator, factor;
+
+    comp_start = timer();
 
     // ALLOCATE LOCAL SUBMATRICES
     for (process = 0; process < np; process++)
@@ -307,8 +309,7 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
         if (mode == CONTINUOUS) {
             pivot_owner = pivot / bf;
             target_row = pivot % bf;
-        }
-        else {
+        } else {
             pivot_owner = pivot % np;
             target_row = pivot / np;
         }
@@ -316,17 +317,17 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
         // owner sends pivot row to everyone via buffer
         if (rank == pivot_owner) {
             // make buffer
-            for (column = pivot; column < n; column++) {
+            for (column = pivot; column < n; column++)
                 buffer[column - pivot] = local[target_row][column];
-            }
-            comm_start = timer();
-
-            // send this row to all other processes
-            MPI_Bcast(buffer, buffer_size, MPI_DOUBLE, rank, MPI_COMM_WORLD);
-
-            comm_end = timer();
-            total_comm += comm_end - comm_start;
         }
+
+        comm_start = timer();
+
+        // send this row to all other processes
+        MPI_Bcast(buffer, buffer_size, MPI_DOUBLE, pivot_owner, MPI_COMM_WORLD);
+
+        comm_end = timer();
+        total_comm += comm_end - comm_start;
 
         // now do elimination on the rows below only using the relevant processes
         for (row = pivot+1; row < n; row++) {
@@ -389,18 +390,25 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
         }
     }
 
+    comp_end = timer();
+    total_comp = comp_end - comp_start;
+
     // REPORT RESULTS
     // send comp results to the root
     MPI_Reduce(&total_comm, &total_comm_all, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
+    MPI_Reduce(&total_comp, &total_comp_all, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
 
     if (rank == ROOT_RANK) {
-        printf("Collective, ");
+        printf(ANSI_COLOR_RED "Collective, ");
         if (mode == CONTINUOUS)
-            printf("continuous decomposition.\n");
+            printf("continuous decomposition.");
         else
-            printf("circular decomposition.\n\n");
-        printf("Matrix size (%d,%d), %d processes, blocking factor = %d\n\n", n, n, np, bf);
+            printf("circular decomposition.");
+        printf("\n" ANSI_COLOR_RESET);
+        printf(ANSI_COLOR_BLUE "Matrix size (%d,%d), %d processes, blocking factor = %d\n" ANSI_COLOR_RESET, n, n, np, bf);
         printf("Communication time: %+e s\n", total_comm_all);
+        printf("Computation time: %+e s\n", total_comp_all - total_comm_all);
+        printf("Total computation + communication time: %+e s\n\n", total_comp_all);
     }
 
     free(local);
@@ -408,20 +416,19 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
     return matrix;
 }
 
-void test_parallel(int n, int mechanism, int decomp_mode, int argc, char** argv) {
+void test_parallel(int n, int mechanism, int decomp_mode) {
     int rank;
 
     double start, end;
 
     double** A = make_matrix(n);
 
-    MPI_Init(&argc, &argv);
+
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     if (rank == ROOT_RANK){
         // print_matrix(A, n);
         // printf("\n\n");
-        start = timer();
     }
 
     if (mechanism == P2P)
@@ -432,11 +439,9 @@ void test_parallel(int n, int mechanism, int decomp_mode, int argc, char** argv)
     if (rank == ROOT_RANK){
         // print_matrix(A, n);
         // printf("\n");
-        end = timer();
-        printf("Total computation + communication time: %+e s\n", end - start);
     }
 
-    MPI_Finalize();
+
 }
 
 
