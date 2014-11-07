@@ -8,6 +8,8 @@ Lab 2 - 07 November, 2014
 
 # Setup
 
+## Specifications
+
 Apple MacBook Air, 13", Mid 2011 (model 4,2)
 
 **Operating System**: OS X 10.10 Yosemite
@@ -17,6 +19,12 @@ Apple MacBook Air, 13", Mid 2011 (model 4,2)
 **Other Information**: 4 GB 1333 MHz DDR3 RAM, Intel HD Graphics 3000 384 MB, SSD drive
 
 Using `open-mpi-1.8.3`
+
+## Building
+
+Execute `make` the Makefile to build and execute `mpiexec -np X ./program.out` to run, where `X` is the number of processors you wish to use. Adjust `n` in `main.c` to change the matrix size.
+
+To print a matrix, use the `print_matrix(double**,int)` function from `tools.c/.h`.
 
 # 1. Gaussian Elimination
 
@@ -56,308 +64,113 @@ See `GEmpi.c`, function `gauss_elim_parallel_bcast()`.
 
 # 3. Experiment
 
-## 3.2 Output data
+## 3.1 Output data
 
-Note: Real = Total / NumProcesses
+Note: Some of the reported screenshot values have not been adjusted, i.e. I did not divide the total result by the number of processes. Thus for 2 processes, the reported values are twice as big as the real values, for 4 process they're 4 times the correct size, etc. I've reflected the real values in the charts where necessary.
+
+Values in the charts are rounded to two digits or the nearest second, whichever is bigger.
+
+Real = Total / NumProcesses
 
 ### n=1024, np=02
 
-![](./pictures/1024.02.png)
+![](./pictures/results/1024.02.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (1024,1024), 2 processes, blocking factor = 512
-Communication time: +2.496624e-01 s
-Computation time: +2.284000e+00 s
-Total computation + communication time: +2.533662e+00 s
+Adjusted for real time (i.e. total time / np):
 
-Point-to-Point, circular decomposition.
-Matrix size (1024,1024), 2 processes, blocking factor = 512
-Communication time: +5.734062e-02 s
-Computation time: +2.077748e+00 s
-Total computation + communication time: +2.135089e+00 s
-
-Collective, continuous decomposition.
-Matrix size (1024,1024), 2 processes, blocking factor = 512
-Communication time: +2.817822e-02 s
-Computation time: +2.372027e+00 s
-Total computation + communication time: +2.400205e+00 s
-
-Collective, circular decomposition.
-Matrix size (1024,1024), 2 processes, blocking factor = 512
-Communication time: +2.761292e-02 s
-Computation time: +1.869801e+00 s
-Total computation + communication time: +1.897414e+00 s
-`
+![](./pictures/charts/1024.02.png)
 
 ### n=1024, np=04
 
-![](./pictures/1024.04.png)
+![](./pictures/results/1024.04.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (1024,1024), 4 processes, blocking factor = 256
-Communication time: +1.403330e+00 s
-Computation time: +3.465884e+00 s
-Total computation + communication time: +4.869214e+00 s
+Adjusted:
 
-Point-to-Point, circular decomposition.
-Matrix size (1024,1024), 4 processes, blocking factor = 256
-Communication time: +4.776108e-01 s
-Computation time: +3.359475e+00 s
-Total computation + communication time: +3.837086e+00 s
-
-Collective, continuous decomposition.
-Matrix size (1024,1024), 4 processes, blocking factor = 256
-Communication time: +2.944329e-01 s
-Computation time: +4.774913e+00 s
-Total computation + communication time: +5.069346e+00 s
-
-Collective, circular decomposition.
-Matrix size (1024,1024), 4 processes, blocking factor = 256
-Communication time: +2.272630e-01 s
-Computation time: +3.614222e+00 s
-Total computation + communication time: +3.841485e+00 s
-```
+![](./pictures/charts/1024.04.png)
 
 ### n=1024, np=08
 
-![](./pictures/1024.08.png)
+![](./pictures/results/1024.08.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (1024,1024), 8 processes, blocking factor = 128
-Communication time: +2.977805e+02 s
-Computation time: +4.894713e+01 s
-Total computation + communication time: +3.467276e+02 s
+Adjusted:
 
-Point-to-Point, circular decomposition.
-Matrix size (1024,1024), 8 processes, blocking factor = 128
-Communication time: +2.579853e+02 s
-Computation time: +1.079681e+02 s
-Total computation + communication time: +3.659534e+02 s
-
-Collective, continuous decomposition.
-Matrix size (1024,1024), 8 processes, blocking factor = 128
-Communication time: +4.691582e+02 s
-Computation time: +1.642646e+02 s
-Total computation + communication time: +6.334228e+02 s
-
-Collective, circular decomposition.
-Matrix size (1024,1024), 8 processes, blocking factor = 128
-Communication time: +3.867439e+02 s
-Computation time: +1.480555e+02 s
-Total computation + communication time: +5.347994e+02 s
-```
+![](./pictures/charts/1024.08.png)
 
 ### n=1024, np=16
 
-![](./pictures/1024.16.png)
+![](./pictures/results/1024.16.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (1024,1024), 16 processes, blocking factor = 64
-Summed Communication time: +5.832155e+03 s
-Real Communication time: +3.645097e+02 s
-Summed Computation time: +4.296388e+02 s
-Real Computation time: +0.000000e+00 s
-Total computation + communication time: +6.261793e+03 s
-Real computation + communication time: +3.913621e+02 s
+Computation times adjusted for real values:
 
-Point-to-Point, circular decomposition.
-Matrix size (1024,1024), 16 processes, blocking factor = 64
-Summed Communication time: +4.951117e+03 s
-Real Communication time: +3.094448e+02 s
-Summed Computation time: +9.157714e+02 s
-Real Computation time: +0.000000e+00 s
-Total computation + communication time: +5.866888e+03 s
-Real computation + communication time: +3.666805e+02 s
-
-Collective, continuous decomposition.
-Matrix size (1024,1024), 16 processes, blocking factor = 64
-Summed Communication time: +4.301902e+03 s
-Real Communication time: +2.688688e+02 s
-Summed Computation time: +1.300491e+03 s
-Real Computation time: +0.000000e+00 s
-Total computation + communication time: +5.602393e+03 s
-Real computation + communication time: +3.501496e+02 s
-
-Collective, circular decomposition.
-Matrix size (1024,1024), 16 processes, blocking factor = 64
-Summed Communication time: +3.811492e+03 s
-Real Communication time: +2.382182e+02 s
-Summed Computation time: +1.314876e+03 s
-Real Computation time: +0.000000e+00 s
-Total computation + communication time: +5.126367e+03 s
-Real computation + communication time: +3.203980e+02 s
-```
+![](./pictures/charts/1024.16.png)
 
 ### n=2048, np=02
 
-![](./pictures/2048.02.png)
+![](./pictures/results/2048.02.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (2048,2048), 2 processes, blocking factor = 1024
-Communication time: +1.916867e+00 s
-Computation time: +1.797140e+01 s
-Total computation + communication time: +1.988827e+01 s
+Adjusted:
 
-Point-to-Point, circular decomposition.
-Matrix size (2048,2048), 2 processes, blocking factor = 1024
-Communication time: +1.101716e-01 s
-Computation time: +1.405899e+01 s
-Total computation + communication time: +1.416916e+01 s
-
-Collective, continuous decomposition.
-Matrix size (2048,2048), 2 processes, blocking factor = 1024
-Communication time: +1.749251e-01 s
-Computation time: +2.032325e+01 s
-Total computation + communication time: +2.049817e+01 s
-
-Collective, circular decomposition.
-Matrix size (2048,2048), 2 processes, blocking factor = 1024
-Communication time: +1.416628e-01 s
-Computation time: +1.790520e+01 s
-Total computation + communication time: +1.804687e+01 s
-```
+![](./pictures/charts/2048.02.png)
 
 ### n=2048, np=04
 
-![](./pictures/2048.04.png)
+![](./pictures/results/2048.04.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (2048,2048), 4 processes, blocking factor = 512
-Communication time: +1.128113e+01 s
-Computation time: +2.979890e+01 s
-Total computation + communication time: +4.108003e+01 s
+Adjusted:
 
-Point-to-Point, circular decomposition.
-Matrix size (2048,2048), 4 processes, blocking factor = 512
-Communication time: +4.319773e+00 s
-Computation time: +2.844327e+01 s
-Total computation + communication time: +3.276305e+01 s
-
-Collective, continuous decomposition.
-Matrix size (2048,2048), 4 processes, blocking factor = 512
-Communication time: +5.928186e+00 s
-Computation time: +5.755853e+01 s
-Total computation + communication time: +6.348672e+01 s
-
-Collective, circular decomposition.
-Matrix size (2048,2048), 4 processes, blocking factor = 512
-Communication time: +2.087896e+00 s
-Computation time: +3.973988e+01 s
-Total computation + communication time: +4.182778e+01 s
-```
+![](./pictures/charts/2048.04.png)
 
 ### n=2048, np=08
 
-![](./pictures/2048.08.png)
+![](./pictures/results/2048.08.png)
+
+Adjusted:
+
+![](./pictures/charts/2048.08.png)
 
 ### n=2048, np=16
 
-![](./pictures/2048.16.png)
+![](./pictures/results/2048.16.png)
 
 ### n=4096, np=02
 
-![](./pictures/4096.02.png)
+![](./pictures/results/4096.02.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (4096,4096), 2 processes, blocking factor = 2048
-Communication time: +1.777081e+01 s
-Computation time: +1.776045e+02 s
-Total computation + communication time: +1.953753e+02 s
+Adjusted:
 
-Point-to-Point, circular decomposition.
-Matrix size (4096,4096), 2 processes, blocking factor = 2048
-Communication time: +1.640594e+00 s
-Computation time: +1.487402e+02 s
-Total computation + communication time: +1.503808e+02 s
-
-Collective, continuous decomposition.
-Matrix size (4096,4096), 2 processes, blocking factor = 2048
-Communication time: +8.259988e-01 s
-Computation time: +1.891440e+02 s
-Total computation + communication time: +1.899700e+02 s
-
-Collective, circular decomposition.
-Matrix size (4096,4096), 2 processes, blocking factor = 2048
-Communication time: +5.134349e-01 s
-Computation time: +1.373282e+02 s
-Total computation + communication time: +1.378416e+02 s
-```
+![](./pictures/charts/4096.02.png)
 
 ### n=4096, np=04
 
-![](./pictures/4096.04.png)
+![](./pictures/results/4096.04.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (4096,4096), 4 processes, blocking factor = 1024
-Communication time: +8.191289e+01 s
-Computation time: +2.832972e+02 s
-Total computation + communication time: +3.652101e+02 s
+Adjusted:
 
-Point-to-Point, circular decomposition.
-Matrix size (4096,4096), 4 processes, blocking factor = 1024
-Communication time: +1.559738e+01 s
-Computation time: +2.535356e+02 s
-Total computation + communication time: +2.691330e+02 s
-
-Collective, continuous decomposition.
-Matrix size (4096,4096), 4 processes, blocking factor = 1024
-Communication time: +8.857163e+00 s
-Computation time: +3.487060e+02 s
-Total computation + communication time: +3.575632e+02 s
-
-Collective, circular decomposition.
-Matrix size (4096,4096), 4 processes, blocking factor = 1024
-Communication time: +8.012309e+00 s
-Computation time: +2.489533e+02 s
-Total computation + communication time: +2.569656e+02 s
-```
+![](./pictures/charts/4096.04.png)
 
 ### n=4096, np=08
 
-![](./pictures/4096.08.png)
+![](./pictures/results/4096.08.png)
 
-```
-Point-to-Point, continuous decomposition.
-Matrix size (4096,4096), 8 processes, blocking factor = 512
-Summed Communication time: +1.765698e+03 s
-Real Communication time: +2.207123e+02 s
-Summed Computation time: +6.559446e+02 s
-Real Computation time: +0.000000e+00 s
-Total computation + communication time: +2.421643e+03 s
-Real computation + communication time: +3.027053e+02 s
-
-Point-to-Point, circular decomposition.
-Matrix size (4096,4096), 8 processes, blocking factor = 512
-Summed Communication time: +1.622032e+03 s
-Real Communication time: +2.027541e+02 s
-Summed Computation time: +9.439638e+02 s
-Real Computation time: +0.000000e+00 s
-Total computation + communication time: +2.565996e+03 s
-Real computation + communication time: +3.207495e+02 s
-
-Collective, continuous decomposition.
-Matrix size (4096,4096), 8 processes, blocking factor = 512
-Communication time: +2.143033e+03 s
-Computation time: +1.138506e+03 s
-Total computation + communication time: +3.281539e+03 s
-
-Collective, circular decomposition.
-Matrix size (4096,4096), 8 processes, blocking factor = 512
-Communication time: +1.842639e+03 s
-Computation time: +1.105007e+03 s
-Total computation + communication time: +2.947646e+03 s
-```
+![](./pictures/charts/4096.08.png)
 
 ### n=4096, np=16
 
-![](./pictures/4096.16.png)
+![](./pictures/results/4096.16.png)
+
+![](./pictures/charts/4096.16.png)
+
+
+## 3.2 Observations
+
+Using eight or more processes for each case lead a dramatic increase in communication overhead in every version of the parallel code. The communication overhead for 16 processes was too long for my computer to handle, using every core to 99% capacity for many minutes.
+
+The broadcast/collective versions of the code were slightly faster than their point-to-point counterparts for less than four processes. The communication time greatly decreased, while the computation time slightly increased. I'm sure a faster processor than my own would show a greater gap between the two strategies.
+
+With larger matrices, the broadcast method was less effective, as it has to send larger and larger buffers / local submatrices to every other process. That being said, I would suggest broadcast for all cases unless you need to dramatically reduce the amount of times a process needs to receive data (like cases with limited bandwidth).
+
+The circular/cyclical decomposition method was noticeably faster than its continuous counterpart for four or less processes - I suspect that this is because the cyclical implementation evens out the computation load for each processor, rather than having finished processes wait after their turns are complete. I would suggest continuous over cyclical decomposition only if the system has an efficient way of caching/fetching nearby rows, or if some processors are significantly faster than others (assigning the most-used processes to these faster processors).
+
+The continuous decomposition strategy may be improved by implementing a way to kill a process early once it has finished sending all its pivot rows, as it is doing nothing but receiving buffers and wasting CPU scheduling at that point.
 
 
