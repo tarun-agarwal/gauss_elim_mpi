@@ -206,9 +206,12 @@ double** gauss_elim_parallel_p2p(double** matrix, int n, int mode) {
             printf("circular decomposition.");
         printf("\n" ANSI_COLOR_RESET);
         printf(ANSI_COLOR_BLUE "Matrix size (%d,%d), %d processes, blocking factor = %d\n" ANSI_COLOR_RESET, n, n, np, bf);
-        printf("Communication time: %+e s\n", total_comm_all);
-        printf("Computation time: %+e s\n", total_comp_all - total_comm_all);
-        printf("Total computation + communication time: %+e s\n\n", total_comp_all);
+        printf("Summed Communication time: %+e s\n", total_comm_all);
+        printf(ANSI_COLOR_CYAN "Real Communication time: %+e s\n" ANSI_COLOR_RESET, (total_comm_all / np));
+        printf("Summed Computation time: %+e s\n", total_comp_all - total_comm_all);
+        printf(ANSI_COLOR_CYAN "Real Computation time: %+e s\n" ANSI_COLOR_RESET, (total_comp_all - total_comp_all) / np);
+        printf("Total computation + communication time: %+e s\n", total_comp_all);
+        printf(ANSI_COLOR_GREEN "Real computation + communication time: %+e s\n\n" ANSI_COLOR_RESET, (total_comp_all / np));
     }
 
     free(local);
@@ -398,7 +401,7 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
     MPI_Reduce(&total_comm, &total_comm_all, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
     MPI_Reduce(&total_comp, &total_comp_all, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
 
-    if (rank == ROOT_RANK) {
+if (rank == ROOT_RANK) {
         printf(ANSI_COLOR_RED "Collective, ");
         if (mode == CONTINUOUS)
             printf("continuous decomposition.");
@@ -406,9 +409,12 @@ double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
             printf("circular decomposition.");
         printf("\n" ANSI_COLOR_RESET);
         printf(ANSI_COLOR_BLUE "Matrix size (%d,%d), %d processes, blocking factor = %d\n" ANSI_COLOR_RESET, n, n, np, bf);
-        printf("Communication time: %+e s\n", total_comm_all);
-        printf("Computation time: %+e s\n", total_comp_all - total_comm_all);
-        printf("Total computation + communication time: %+e s\n\n", total_comp_all);
+        printf("Summed Communication time: %+e s\n", total_comm_all);
+        printf(ANSI_COLOR_CYAN "Real Communication time: %+e s\n" ANSI_COLOR_RESET, (total_comm_all / np));
+        printf("Summed Computation time: %+e s\n", total_comp_all - total_comm_all);
+        printf(ANSI_COLOR_CYAN "Real Computation time: %+e s\n" ANSI_COLOR_RESET, (total_comp_all - total_comp_all) / np);
+        printf("Total computation + communication time: %+e s\n", total_comp_all);
+        printf(ANSI_COLOR_GREEN "Real computation + communication time: %+e s\n\n" ANSI_COLOR_RESET, (total_comp_all / np));
     }
 
     free(local);

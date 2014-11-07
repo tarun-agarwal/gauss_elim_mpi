@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
     // test_serial();
     // time_serial_all();
 
-    int n = 1024;
+    int n = 1*1024;
 
     MPI_Init(&argc, &argv);
 
