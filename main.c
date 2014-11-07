@@ -12,7 +12,9 @@ int main(int argc, char** argv) {
     // test_serial();
     // time_serial_all();
 
-    test_parallel(argc, argv);
+    int n = 1024;
+
+    test_parallel(n, P2P, CONTINUOUS, argc, argv);
 
     return 0;
 }

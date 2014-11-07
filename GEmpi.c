@@ -14,8 +14,7 @@
 
 #define ROOT_RANK 0
 
-#define CONTINUOUS 0 // Process i gets rows i*bf->(((i+1)*bf)-1)
-#define CICRULAR 1 // Process i gets rows (sum j=0->(bf-1))*np + i
+
 
 double** gauss_elim_parallel_p2p(double** matrix, int n, int mode) {
     // DECLARATIONS & INITALIZATIONS
@@ -220,12 +219,196 @@ double** gauss_elim_parallel_p2p(double** matrix, int n, int mode) {
     return matrix;
 }
 
-double** gauss_elim_parallel_broadcast(double** A, int n, int mode){
-    return A;
+double** gauss_elim_parallel_broadcast(double** matrix, int n, int mode){
+    // DECLARATIONS & INITALIZATIONS
+
+    // for MPI calls:
+    int np, rank; // from MPI_Init()
+
+    MPI_Comm_size(MPI_COMM_WORLD, &np); // number of processes
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); // this process' rank
+
+    int target_row; // target rank for send/recv
+    int row_owner, pivot_owner;
+
+    // for matrix allocation
+    int bf = n / np; // blocking factor, i.e. number of rows per local matrix
+    int local_size = n * bf; // # of elements per MPI_Send of submatrix
+    int buffer_size;
+
+    double* buffer; // allocate row buffer
+    double** local; // local submatrix for each process
+    double* local_temp = malloc(n * sizeof(double));
+
+    // for timer:
+    double comm_start, comm_end;
+    double total_comm = 0.0;
+    double total_comm_all = 0.0; // for all processes
+
+    // loop iterators:
+    int process; // looping over processes
+    int pivot, row, column; // looping through matrices
+
+    // for gauss elimination:
+    double denominator, factor;
+
+    // ALLOCATE LOCAL SUBMATRICES
+    for (process = 0; process < np; process++)
+        if (rank == process)
+            // local submatrix should be of size n*bf*(8 bytes)
+            local = allocate_submatrix(n, bf);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // INIT LOCAL SUBMATRICES
+    for (row = 0; row < n; row++) {
+        if (mode == CONTINUOUS) {
+            row_owner = row / bf;
+            target_row = row % bf;
+        }
+        else {
+            row_owner = row % np;
+            target_row = row / np ;
+        }
+
+        if (row >= bf) {
+            // not owned by root, so send to relevant process
+            // send to applicable process
+
+            local_temp = matrix[row];
+
+            comm_start = timer();
+            MPI_Bcast(local_temp, n, MPI_DOUBLE, row_owner, MPI_COMM_WORLD);
+            comm_end = timer();
+            total_comm += comm_end - comm_start;
+
+            if (rank == row_owner) {
+                // recv submatrix from root
+                local[target_row] = local_temp;
+            }
+        } else {
+            // first bf rows so allocate root's portion directly
+            if (rank == ROOT_RANK) {
+                for (column = 0; column < n; column++) {
+                    local[target_row][column] = matrix[row][column];
+                }
+            }
+        }
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // PERFORM GAUSS ELIMINATION
+    for (pivot = 0; pivot < n; pivot++) {
+        // allocate buffer
+        buffer_size = n - pivot;
+        buffer = malloc(buffer_size * sizeof(double));
+
+        if (mode == CONTINUOUS) {
+            pivot_owner = pivot / bf;
+            target_row = pivot % bf;
+        }
+        else {
+            pivot_owner = pivot % np;
+            target_row = pivot / np;
+        }
+
+        // owner sends pivot row to everyone via buffer
+        if (rank == pivot_owner) {
+            // make buffer
+            for (column = pivot; column < n; column++) {
+                buffer[column - pivot] = local[target_row][column];
+            }
+            comm_start = timer();
+
+            // send this row to all other processes
+            MPI_Bcast(buffer, buffer_size, MPI_DOUBLE, rank, MPI_COMM_WORLD);
+
+            comm_end = timer();
+            total_comm += comm_end - comm_start;
+        }
+
+        // now do elimination on the rows below only using the relevant processes
+        for (row = pivot+1; row < n; row++) {
+            if (mode == CONTINUOUS) {
+                row_owner = row / bf;
+                target_row = row % bf;
+            }
+            else {
+                row_owner = row % np;
+                target_row = row / np;
+            }
+
+            if (rank == row_owner) {
+                denominator = buffer[0];
+
+                factor = local[target_row][pivot] / denominator;
+
+                for (column = pivot; column < n; column++)
+                    local[target_row][column] -= factor*buffer[column - pivot];
+            }
+        }
+
+        free(buffer);
+
+        // don't let other processes get too far ahead, i.e. avoid race conditions
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+    // COMBINE RESULTS
+    for (row = 0; row < n; row++) {
+        if (mode == CONTINUOUS) {
+            row_owner = row / bf;
+            target_row = row % bf;
+        } else {
+            row_owner = row % np;
+            target_row = row / np;
+        }
+
+        if (row_owner != ROOT_RANK) {
+            local_temp = matrix[row];
+
+            comm_start = timer();
+
+            // send this row to everyone
+            MPI_Bcast(local_temp, n, MPI_DOUBLE, row_owner, MPI_COMM_WORLD);
+
+            comm_end = timer();
+            total_comm += comm_end - comm_start;
+
+            if (rank == ROOT_RANK) {
+                // root merges results from row owner
+                matrix[row] = local_temp;
+            }
+
+        } else {
+            if (rank == ROOT_RANK)
+                // root/P0 merges its own submatrix into the original
+                for (column = 0; column < n; column++)
+                    matrix[row][column] = local[target_row][column];
+        }
+    }
+
+    // REPORT RESULTS
+    // send comp results to the root
+    MPI_Reduce(&total_comm, &total_comm_all, 1, MPI_DOUBLE, MPI_SUM, ROOT_RANK, MPI_COMM_WORLD);
+
+    if (rank == ROOT_RANK) {
+        printf("Collective, ");
+        if (mode == CONTINUOUS)
+            printf("continuous decomposition.\n");
+        else
+            printf("circular decomposition.\n\n");
+        printf("Matrix size (%d,%d), %d processes, blocking factor = %d\n\n", n, n, np, bf);
+        printf("Communication time: %+e s\n", total_comm_all);
+    }
+
+    free(local);
+
+    return matrix;
 }
 
-void test_parallel(int argc, char** argv) {
-    int n = 1024;
+void test_parallel(int n, int mechanism, int decomp_mode, int argc, char** argv) {
     int rank;
 
     double start, end;
@@ -241,7 +424,10 @@ void test_parallel(int argc, char** argv) {
         start = timer();
     }
 
-    A = gauss_elim_parallel_p2p(A, n, CICRULAR);
+    if (mechanism == P2P)
+        A = gauss_elim_parallel_p2p(A, n, decomp_mode);
+    else
+        A = gauss_elim_parallel_broadcast(A, n, decomp_mode);
 
     if (rank == ROOT_RANK){
         // print_matrix(A, n);
@@ -251,10 +437,6 @@ void test_parallel(int argc, char** argv) {
     }
 
     MPI_Finalize();
-}
-
-void time_parallel_all() {
-    return;
 }
 
 

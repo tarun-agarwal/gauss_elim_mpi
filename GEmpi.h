@@ -3,6 +3,11 @@
 #include "tools.h"
 #include <mpi.h>
 
-void test_parallel(int, char**);
-void time_parallel_all();
+#define P2P 0
+#define BCAST 1
+
+#define CONTINUOUS 0 // Process i gets rows blocks of rows
+#define CICRULAR 1 // Process i gets every bf row
+
+void test_parallel(int, int, int, int, char**);
 
