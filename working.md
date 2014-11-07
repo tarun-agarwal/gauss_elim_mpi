@@ -30,6 +30,31 @@ To print a matrix, use the `print_matrix(double**,int)` function from `tools.c/.
 
 ## 1.1 Parallelization Strategy
 
+iteration *i*, continuous (blocks of *b* rows per process), blocking factor *b*:
+
+
+| Process i: | PIVOT 0 | PIVOT 1 | PIVOT 2 | ... | PIVOT n |
+| ---------: | :-----: | :-----: | :-----: | :-: | :-----: |
+| Process i: | i's local 0,1 | i's local 0,1 | i's local 0,2 | ... | i's local 0, n |
+| Process i: | i's local 1,1 | i's local 1,1 | i's local 1,2 | ... | i's local 1, n |
+| ... | ... | ... | ... | ... | ... |
+| Process i: | i's local b,1 | i's local b,1 | i's local b,2 | ... | i's local b, n |
+| Process i+1: | i+1's local 0,1 | i+1's local 0,1 | i+1's local 0,2 | ... | i+1's local 0, n |
+| Process i+1: | i+1's local 1,1 | i+1's local 1,1 | i+1's local 1,2 | ... | i+1's local 1, n |
+| Process i+1: | i+1's local 1,1 | i+1's local 1,1 | i+1's local 1,2 | ... | i+1's local 1, n |
+| ... | ... | ... | ... | ... | ... |
+
+
+
+Circular (interlace rows per process, i.e. for two processes every other row, etc.):
+
+| Process i: | PIVOT 0 | PIVOT 1 | PIVOT 2 | ... | PIVOT n |
+| ---------: | :-----: | :-----: | :-----: | :-: | :-----: |
+| Process i: | i's local 0,1 | i's local 0,1 | i's local 0,2 | ... | i's local 0, n |
+| Process i+1: | i+1's local 0,1 | i+1's local 0,1 | i+1's local 0,2 | ... | i+1's local 0, n |
+| ... | ... | ... | ... | ... | ... |
+
+
 ## 1.2 Serial Implementation
 
 See `GESerial.c`.
@@ -130,7 +155,7 @@ Adjusted:
 
 ### n=2048, np=16
 
-![](./pictures/results/2048.16.png)
+Not implemented.
 
 ### n=4096, np=02
 
@@ -156,10 +181,7 @@ Adjusted:
 
 ### n=4096, np=16
 
-![](./pictures/results/4096.16.png)
-
-![](./pictures/charts/4096.16.png)
-
+Not implemented.
 
 ## 3.2 Observations
 
